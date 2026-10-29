@@ -31,7 +31,6 @@ function saveTodos() {
 function renderTodos() {
   todoList.replaceChildren();
 
-  // DocumentFragment로 DOM 조작 횟수를 1회로 단축
   const fragment = document.createDocumentFragment();
 
   todos.forEach((todo) => {
@@ -80,7 +79,57 @@ function toggleTodo(id, completed) {
   }
 }
 
-// 1개의 리스너로 모든 체크박스 상태 제어 (이벤트 위임)
+// 수정 모드로 전환
+function startEditing(item) {
+  // 이미 수정 모드인 항목이 있다면 렌더링을 통해 원복
+  if (todoList.querySelector(".edit-input")) {
+    renderTodos();
+  }
+
+  const currentItem = todoList.querySelector(`[data-id="${item.dataset.id}"]`);
+  const textSpan = currentItem.querySelector(".todo-text");
+  const editButton = currentItem.querySelector(".edit-button");
+  const currentText = textSpan.textContent;
+
+  // 수정용 입력창 생성
+  const editInput = document.createElement("input");
+  editInput.type = "text";
+  editInput.className = "edit-input";
+  editInput.value = currentText;
+
+  // 버튼 변경: 수정 -> 저장, 삭제 -> 취소
+  editButton.textContent = "저장";
+  editButton.classList.replace("edit-button", "save-button");
+
+  const deleteButton = currentItem.querySelector(".delete-button");
+  deleteButton.textContent = "취소";
+  deleteButton.classList.replace("delete-button", "cancel-button");
+
+  textSpan.replaceWith(editInput);
+  editInput.focus();
+}
+
+// 수정 사항 저장
+function saveEdit(item) {
+  const id = item.dataset.id;
+  const editInput = item.querySelector(".edit-input");
+  const newText = editInput.value.trim();
+
+  if (!newText) {
+    alert("내용을 입력해 주세요.");
+    editInput.focus();
+    return;
+  }
+
+  const target = todos.find((todo) => todo.id === id);
+  if (target) {
+    target.text = newText;
+    saveTodos();
+    renderTodos();
+  }
+}
+
+// 이벤트 위임: 체크박스
 todoList.addEventListener("change", (e) => {
   if (e.target.matches(".todo-checkbox")) {
     const item = e.target.closest(".todo-item");
@@ -88,26 +137,43 @@ todoList.addEventListener("change", (e) => {
   }
 });
 
-// 1개의 리스너로 모든 삭제/수정 버튼 제어 (이벤트 위임)
+// 이벤트 위임: 버튼 클릭 (수정 / 저장 / 취소 / 삭제)
 todoList.addEventListener("click", (e) => {
   const item = e.target.closest(".todo-item");
   if (!item) return;
 
   const id = item.dataset.id;
 
-  if (e.target.matches(".delete-button")) {
+  if (e.target.matches(".edit-button")) {
+    startEditing(item);
+  } else if (e.target.matches(".save-button")) {
+    saveEdit(item);
+  } else if (e.target.matches(".cancel-button")) {
+    renderTodos();
+  } else if (e.target.matches(".delete-button")) {
     deleteTodo(id);
-  } else if (e.target.matches(".edit-button")) {
-    // 필요 시 수정 로직 연동
   }
 });
 
-// 할 일 등록
+// 이벤트 위임: 수정 입력창 단축키 (Enter로 저장, Escape로 취소)
+todoList.addEventListener("keydown", (e) => {
+  if (!e.target.matches(".edit-input")) return;
+
+  const item = e.target.closest(".todo-item");
+
+  if (e.key === "Enter") {
+    e.preventDefault();
+    saveEdit(item);
+  } else if (e.key === "Escape") {
+    renderTodos();
+  }
+});
+
+// 할 일 추가
 todoForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const text = todoInput.value.trim();
 
-  // 빈 문자열 방지
   if (!text) return;
 
   const newTodo = {
@@ -126,6 +192,5 @@ todoForm.addEventListener("submit", (e) => {
   renderTodos();
 });
 
-// 초기화
 loadTodos();
 renderTodos();
